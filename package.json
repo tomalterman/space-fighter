@@ -1,0 +1,9 @@
+{
+  "name": "space-fighter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Space Fighter arcade game",
+  "scripts": {
+    "build": "node build.js"
+  }
+}
