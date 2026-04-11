@@ -160,7 +160,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v9',
+    version: 'v10',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -1354,7 +1354,7 @@ let shakeOffsetY = 0;
 
 let crtOn = false;
 let crtListenerAttached = false;
-let dpadStyleAttached = false;
+let touchControlsAttached = false;
 
 let nextExtendScore = EXTEND_FIRST;
 
@@ -1401,10 +1401,10 @@ function gameInit() {
         crtListenerAttached = true;
     }
 
-    // Re-style the engine's auto-generated touch buttons into a proper
-    // d-pad cluster on the left and a fire/bomb cluster on the right,
-    // overriding the engine's default flex row.
-    setupDpadLayout();
+    // Replace the engine's four directional touch buttons with a single
+    // virtual d-pad widget, half-size fire/bomb buttons, and a layout
+    // pulled in toward the center for young kids holding an iPad.
+    setupTouchControls();
 
     // Drop the attract demo so it does not bleed into a real run.
     demoState = null;
@@ -2773,21 +2773,35 @@ function gameOverRender(ctx, w, h) {
 }
 
 // =====================================================================
-// TOUCH D-PAD LAYOUT
+// TOUCH CONTROLS — virtual d-pad + half-size fire/bomb
 // =====================================================================
 //
 // The engine in src/engine/input.js auto-generates one touch button per
 // GAME.controls entry inside #touchControls and lays them out as a flex
-// row. Six buttons in a row is cramped. Inject a stylesheet here that
-// overrides the row, absolutely positions the four directional buttons
-// in a cross on the bottom left, and groups fire/bomb on the bottom
-// right with FIRE oversized for primary-thumb ergonomics. Phone and
-// tablet (>=700px) get distinct sizings.
+// row. Six buttons in a row is unusable for a young kid holding an
+// iPad. Replace it with:
+//
+//   1. A single circular VIRTUAL D-PAD on the bottom left. Touching
+//      anywhere inside it sets Engine.input.up/down/left/right based on
+//      the touch position relative to the dpad center, with a small
+//      dead zone in the middle. Touchmove updates direction live so a
+//      thumb can slide between directions without lifting. Multi-touch
+//      safe via touch.identifier so a finger on the d-pad doesn't
+//      break a separate finger on FIRE.
+//   2. The engine-generated #touch_up/down/left/right divs are hidden
+//      with display:none so they don't double-fire.
+//   3. FIRE and BOMB are half their previous size and pulled in
+//      toward the center so a kid's thumbs reach all the controls
+//      without stretching to the corners.
 
-function setupDpadLayout() {
-    if (dpadStyleAttached) return;
-    dpadStyleAttached = true;
+function setupTouchControls() {
+    if (touchControlsAttached) return;
+    touchControlsAttached = true;
 
+    const touchControls = document.getElementById('touchControls');
+    if (!touchControls) return;
+
+    // 1. Inject the layout stylesheet.
     const style = document.createElement('style');
     style.textContent = `
         @media (pointer: coarse) {
@@ -2799,30 +2813,149 @@ function setupDpadLayout() {
                 inset: 0;
                 pointer-events: none;
             }
-            #touchControls .touchBtn {
-                position: absolute;
+            /* The engine still generates these for keyboard parity,
+               but the virtual dpad replaces them visually. */
+            #touch_up, #touch_down, #touch_left, #touch_right {
+                display: none !important;
             }
 
-            /* --- Phone defaults (80px buttons) --- */
-            #touch_up    { bottom: 196px; left:  90px; }
-            #touch_left  { bottom: 108px; left:   8px; }
-            #touch_right { bottom: 108px; left: 172px; }
-            #touch_down  { bottom:  20px; left:  90px; }
-            #touch_fire  { bottom:  40px; right: 20px; width: 100px !important; height: 100px !important; }
-            #touch_bomb  { bottom: 160px; right: 30px; }
+            #virtualDpad {
+                position: absolute;
+                pointer-events: auto;
+                border-radius: 50%;
+                background: rgba(255,255,255,0.15);
+                border: 4px solid rgba(255,255,255,0.4);
+                touch-action: none;
+                -webkit-tap-highlight-color: transparent;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            #virtualDpad::before {
+                content: '';
+                position: absolute;
+                left: 18%; right: 18%;
+                top: 50%;
+                transform: translateY(-50%);
+                height: 4px;
+                background: rgba(255,255,255,0.45);
+                border-radius: 2px;
+            }
+            #virtualDpad::after {
+                content: '';
+                position: absolute;
+                top: 18%; bottom: 18%;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 4px;
+                background: rgba(255,255,255,0.45);
+                border-radius: 2px;
+            }
+            #virtualDpad.active {
+                background: rgba(255,255,255,0.25);
+                border-color: rgba(255,255,255,0.7);
+            }
+
+            /* --- Phone defaults --- */
+            #virtualDpad { width: 110px; height: 110px; bottom: 24px; left: 36px; }
+            #touch_fire {
+                bottom: 24px; right: 36px;
+                width: 64px !important; height: 64px !important;
+                font-size: 12px;
+            }
+            #touch_bomb {
+                bottom: 100px; right: 50px;
+                width: 44px !important; height: 44px !important;
+                font-size: 10px;
+            }
         }
 
-        /* --- Tablet (>=700px): bigger buttons, wider spacing --- */
+        /* --- Tablet (>=700px): all controls are half their previous v9 size,
+               positioned closer to the canvas/center for shorter thumb reach --- */
         @media (pointer: coarse) and (min-width: 700px) {
-            #touch_up    { bottom: 300px; left: 140px; }
-            #touch_left  { bottom: 170px; left:  10px; }
-            #touch_right { bottom: 170px; left: 270px; }
-            #touch_down  { bottom:  40px; left: 140px; }
-            #touch_fire  { bottom:  60px; right: 40px; width: 160px !important; height: 160px !important; }
-            #touch_bomb  { bottom: 240px; right: 70px; }
+            #virtualDpad { width: 150px; height: 150px; bottom: 50px; left: 90px; }
+            #touch_fire {
+                bottom: 50px; right: 90px;
+                width: 80px !important; height: 80px !important;
+                font-size: 14px;
+            }
+            #touch_bomb {
+                bottom: 150px; right: 110px;
+                width: 56px !important; height: 56px !important;
+                font-size: 12px;
+            }
         }
     `;
     document.head.appendChild(style);
+
+    // 2. Build and append the d-pad widget.
+    const dpad = document.createElement('div');
+    dpad.id = 'virtualDpad';
+    touchControls.appendChild(dpad);
+
+    // 3. Touch handling — multi-touch safe via touch.identifier.
+    let dpadTouchId = null;
+
+    function setDpadFromTouch(touch) {
+        const rect = dpad.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = touch.clientX - cx;
+        const dy = touch.clientY - cy;
+        // Per-axis dead zone — naturally creates a square dead area in
+        // the center and supports 8-direction (touch in upper-right of
+        // d-pad sets both up and right).
+        const deadZone = rect.width * 0.18;
+        Engine.input.left  = dx < -deadZone;
+        Engine.input.right = dx >  deadZone;
+        Engine.input.up    = dy < -deadZone;
+        Engine.input.down  = dy >  deadZone;
+    }
+
+    function clearDpad() {
+        Engine.input.left = false;
+        Engine.input.right = false;
+        Engine.input.up = false;
+        Engine.input.down = false;
+        dpad.classList.remove('active');
+    }
+
+    dpad.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        // Mirror the engine's title/game-over handling so the d-pad can
+        // also start a game when tapped from the title screen.
+        if (Engine.state.showTitleScreen) { startGame(); return; }
+        if (Engine.state.gameOver && !Engine.state.enteringName) { restartGame(); return; }
+        if (dpadTouchId !== null) return;
+        const touch = e.changedTouches[0];
+        dpadTouchId = touch.identifier;
+        dpad.classList.add('active');
+        setDpadFromTouch(touch);
+    }, { passive: false });
+
+    dpad.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === dpadTouchId) {
+                setDpadFromTouch(touch);
+                return;
+            }
+        }
+    }, { passive: false });
+
+    function endDpadTouch(e) {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === dpadTouchId) {
+                dpadTouchId = null;
+                clearDpad();
+                return;
+            }
+        }
+    }
+    dpad.addEventListener('touchend', endDpadTouch, { passive: false });
+    dpad.addEventListener('touchcancel', endDpadTouch, { passive: false });
 }
 
 // =====================================================================
