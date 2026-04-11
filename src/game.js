@@ -291,9 +291,21 @@ function makePlayer() {
 function updatePlayer(dt) {
     if (!player) return;
 
-    if (Engine.input.left)  player.x -= PLAYER_SPEED * dt;
-    if (Engine.input.right) player.x += PLAYER_SPEED * dt;
+    let dx = 0, dy = 0;
+    if (Engine.input.left)  dx -= 1;
+    if (Engine.input.right) dx += 1;
+    if (Engine.input.up)    dy -= 1;
+    if (Engine.input.down)  dy += 1;
+    if (dx !== 0 && dy !== 0) {
+        // Normalize diagonal so it isn't sqrt(2) faster than orthogonal.
+        dx *= 0.7071;
+        dy *= 0.7071;
+    }
+    player.x += dx * PLAYER_SPEED * dt;
+    player.y += dy * PLAYER_SPEED * dt;
+
     player.x = clamp(player.x, 10, GAME.width - 10);
+    player.y = clamp(player.y, 30, GAME.height - 16);
 
     player.hitboxX = player.x;
     player.hitboxY = player.y + PLAYER_HITBOX_OFFSET;

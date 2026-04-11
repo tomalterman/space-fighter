@@ -4,7 +4,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v7',
+    version: 'v8',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -30,7 +30,9 @@ const GAME = {
     // label: button text
     // keys: keyboard codes that map to this control
     controls: [
-        { id: 'left',  label: 'LEFT',  keys: ['ArrowLeft', 'KeyA'] },
+        { id: 'up',    label: 'UP',    keys: ['ArrowUp',    'KeyW'] },
+        { id: 'down',  label: 'DOWN',  keys: ['ArrowDown',  'KeyS'] },
+        { id: 'left',  label: 'LEFT',  keys: ['ArrowLeft',  'KeyA'] },
         { id: 'right', label: 'RIGHT', keys: ['ArrowRight', 'KeyD'] },
         { id: 'fire',  label: 'FIRE',  keys: ['Space'] },
         { id: 'bomb',  label: 'BOMB',  keys: ['ShiftLeft', 'ShiftRight'] }
@@ -38,7 +40,7 @@ const GAME = {
 
     // Desktop instructions (hidden on touch devices)
     instructions: [
-        { label: 'MOVE', keys: 'Arrow Keys or A/D' },
+        { label: 'MOVE', keys: 'Arrow Keys or WASD' },
         { label: 'FIRE', keys: 'Space' },
         { label: 'BOMB', keys: 'Shift' },
         { label: 'CRT',  keys: 'C' }

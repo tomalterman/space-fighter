@@ -160,7 +160,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v7',
+    version: 'v8',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -186,7 +186,9 @@ const GAME = {
     // label: button text
     // keys: keyboard codes that map to this control
     controls: [
-        { id: 'left',  label: 'LEFT',  keys: ['ArrowLeft', 'KeyA'] },
+        { id: 'up',    label: 'UP',    keys: ['ArrowUp',    'KeyW'] },
+        { id: 'down',  label: 'DOWN',  keys: ['ArrowDown',  'KeyS'] },
+        { id: 'left',  label: 'LEFT',  keys: ['ArrowLeft',  'KeyA'] },
         { id: 'right', label: 'RIGHT', keys: ['ArrowRight', 'KeyD'] },
         { id: 'fire',  label: 'FIRE',  keys: ['Space'] },
         { id: 'bomb',  label: 'BOMB',  keys: ['ShiftLeft', 'ShiftRight'] }
@@ -194,7 +196,7 @@ const GAME = {
 
     // Desktop instructions (hidden on touch devices)
     instructions: [
-        { label: 'MOVE', keys: 'Arrow Keys or A/D' },
+        { label: 'MOVE', keys: 'Arrow Keys or WASD' },
         { label: 'FIRE', keys: 'Space' },
         { label: 'BOMB', keys: 'Shift' },
         { label: 'CRT',  keys: 'C' }
@@ -1466,9 +1468,21 @@ function makePlayer() {
 function updatePlayer(dt) {
     if (!player) return;
 
-    if (Engine.input.left)  player.x -= PLAYER_SPEED * dt;
-    if (Engine.input.right) player.x += PLAYER_SPEED * dt;
+    let dx = 0, dy = 0;
+    if (Engine.input.left)  dx -= 1;
+    if (Engine.input.right) dx += 1;
+    if (Engine.input.up)    dy -= 1;
+    if (Engine.input.down)  dy += 1;
+    if (dx !== 0 && dy !== 0) {
+        // Normalize diagonal so it isn't sqrt(2) faster than orthogonal.
+        dx *= 0.7071;
+        dy *= 0.7071;
+    }
+    player.x += dx * PLAYER_SPEED * dt;
+    player.y += dy * PLAYER_SPEED * dt;
+
     player.x = clamp(player.x, 10, GAME.width - 10);
+    player.y = clamp(player.y, 30, GAME.height - 16);
 
     player.hitboxX = player.x;
     player.hitboxY = player.y + PLAYER_HITBOX_OFFSET;
