@@ -178,6 +178,7 @@ let shakeOffsetY = 0;
 let crtOn = false;
 let crtListenerAttached = false;
 let touchControlsAttached = false;
+let touchControlsVisible = null;
 
 let nextExtendScore = EXTEND_FIRST;
 
@@ -255,6 +256,7 @@ function gameUpdate(dt) {
 }
 
 function gameRender(ctx, w, h) {
+    setTouchControlsVisible(true);
     ctx.save();
     if (shakeFrames > 0) {
         ctx.translate(shakeOffsetX, shakeOffsetY);
@@ -1417,6 +1419,7 @@ function drawCRT(ctx, w, h) {
 // =====================================================================
 
 function gameTitleRender(ctx, w, h, time) {
+    setTouchControlsVisible(false);
     // Drive a parallel demo world from real elapsed time.
     if (demoState === null) {
         resetDemo();
@@ -1586,6 +1589,7 @@ function renderDemo(ctx) {
 // =====================================================================
 
 function gameOverRender(ctx, w, h) {
+    setTouchControlsVisible(false);
     renderTerrain(ctx, w, h);
     renderPowerups(ctx);
     renderEnemies(ctx);
@@ -1681,30 +1685,31 @@ function setupTouchControls() {
             /* --- Phone defaults --- */
             #virtualDpad { width: 110px; height: 110px; bottom: 24px; left: 36px; }
             #touch_fire {
-                bottom: 24px; right: 36px;
-                width: 64px !important; height: 64px !important;
-                font-size: 12px;
+                bottom: 24px; right: 28px;
+                width: 76px !important; height: 76px !important;
+                font-size: 13px;
             }
             #touch_bomb {
-                bottom: 100px; right: 50px;
-                width: 44px !important; height: 44px !important;
-                font-size: 10px;
+                bottom: 110px; right: 38px;
+                width: 52px !important; height: 52px !important;
+                font-size: 11px;
             }
         }
 
-        /* --- Tablet (>=700px): all controls are half their previous v9 size,
-               positioned closer to the canvas/center for shorter thumb reach --- */
+        /* --- Tablet (>=700px): bigger ergonomic sizes for an iPad in
+               landscape, with the d-pad on the bottom-left and FIRE/BOMB
+               firmly in the bottom-right corner area. --- */
         @media (pointer: coarse) and (min-width: 700px) {
             #virtualDpad { width: 150px; height: 150px; bottom: 50px; left: 90px; }
             #touch_fire {
-                bottom: 50px; right: 90px;
-                width: 80px !important; height: 80px !important;
-                font-size: 14px;
+                bottom: 50px; right: 70px;
+                width: 100px !important; height: 100px !important;
+                font-size: 16px;
             }
             #touch_bomb {
-                bottom: 150px; right: 110px;
-                width: 56px !important; height: 56px !important;
-                font-size: 12px;
+                bottom: 160px; right: 90px;
+                width: 70px !important; height: 70px !important;
+                font-size: 13px;
             }
         }
     `;
@@ -1779,6 +1784,23 @@ function setupTouchControls() {
     }
     dpad.addEventListener('touchend', endDpadTouch, { passive: false });
     dpad.addEventListener('touchcancel', endDpadTouch, { passive: false });
+}
+
+function setTouchControlsVisible(visible) {
+    if (touchControlsVisible === visible) return;
+    touchControlsVisible = visible;
+    const tc = document.getElementById('touchControls');
+    if (!tc) return;
+    // Inline display: '' falls back to the @media (pointer: coarse) rule
+    // (display: block on touch devices, display: none on mouse-only).
+    tc.style.display = visible ? '' : 'none';
+    if (!visible) {
+        // Releasing focus mid-touch shouldn't leave a direction stuck.
+        Engine.input.left = false;
+        Engine.input.right = false;
+        Engine.input.up = false;
+        Engine.input.down = false;
+    }
 }
 
 // =====================================================================
