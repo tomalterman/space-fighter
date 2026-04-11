@@ -5,6 +5,12 @@
 // Engine.showScorePopup, Engine.Sound, HighScores.scores.
 // First ship version: bump GAME.version and start commit message with "vN:".
 
+// src/template.html ships with a generic <title>Arcade Game</title>.
+// Set the real browser tab title at module load (not inside gameInit,
+// which only runs after the player taps to start) so the title screen
+// already reads "SPACE FIGHTER".
+document.title = GAME.title;
+
 // =====================================================================
 // CONSTANTS / PALETTE
 // =====================================================================
@@ -191,11 +197,6 @@ let demoLastTime = 0;
 // =====================================================================
 
 function gameInit() {
-    // src/template.html ships with a generic <title>Arcade Game</title>
-    // because the template is shared across games. Set the real title
-    // here so the browser tab reads "Space Fighter" instead.
-    document.title = GAME.title;
-
     Engine.state.health = STARTING_LIVES;
     Engine.state.maxHealth = MAX_LIVES;
     Engine.state.score = 0;
