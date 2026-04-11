@@ -134,20 +134,20 @@ const ENEMY_STATS = {
 // Wave timeline. `at` is "scroll units since the last loop reset"; the
 // schedule replays endlessly with bumped difficulty each loop.
 const WAVE_SCHEDULE = [
-    { at: 320,  kind: 'vFormation',    count: 3 },
-    { at: 520,  kind: 'vFormation',    count: 4 },
-    { at: 720,  kind: 'sineSweep',     count: 4, amp: 60 },
-    { at: 900,  kind: 'sineSweep',     count: 5, amp: 70 },
-    { at: 1080, kind: 'turretOnTerrain', offsets: [80, 304] },
-    { at: 1260, kind: 'vFormation',    count: 6 },
-    { at: 1440, kind: 'sineSweep',     count: 6, amp: 90 },
-    { at: 1620, kind: 'bomber' },
-    { at: 1800, kind: 'sineSweep',     count: 7, amp: 90 },
-    { at: 1980, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
-    { at: 2160, kind: 'vFormation',    count: 8 },
-    { at: 2340, kind: 'sineSweep',     count: 7, amp: 100 },
-    { at: 2520, kind: 'bomber' },
-    { at: 2700, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
+    { at: 140,  kind: 'vFormation',    count: 3 },
+    { at: 340,  kind: 'vFormation',    count: 4 },
+    { at: 540,  kind: 'sineSweep',     count: 4, amp: 60 },
+    { at: 720,  kind: 'sineSweep',     count: 5, amp: 70 },
+    { at: 900,  kind: 'turretOnTerrain', offsets: [80, 304] },
+    { at: 1080, kind: 'vFormation',    count: 6 },
+    { at: 1260, kind: 'sineSweep',     count: 6, amp: 90 },
+    { at: 1440, kind: 'bomber' },
+    { at: 1620, kind: 'sineSweep',     count: 7, amp: 90 },
+    { at: 1800, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
+    { at: 1980, kind: 'vFormation',    count: 8 },
+    { at: 2160, kind: 'sineSweep',     count: 7, amp: 100 },
+    { at: 2340, kind: 'bomber' },
+    { at: 2520, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
 ];
 
 const POWERUP_KINDS = ['P', 'P', 'P', 'red', 'blue', 'gold', 'B'];
