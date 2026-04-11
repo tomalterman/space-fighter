@@ -3,9 +3,9 @@
 
 const GAME = {
     title: 'SPACE FIGHTER',
-    subtitle: 'DEFEND THE SKIES',
-    version: 'v2',
-    bgColor: '#050a1a',
+    subtitle: 'GUARD THE GALAXY',
+    version: 'v3',
+    bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
     // Leave as-is to use local-only high scores

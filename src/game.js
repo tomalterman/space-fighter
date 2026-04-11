@@ -10,17 +10,29 @@
 // =====================================================================
 
 const COLOR = {
-    OCEAN_DARK:   '#08305c',
-    OCEAN_MID:    '#0e4a82',
-    OCEAN_LIGHT:  '#1c6bb0',
-    FOAM:         '#9ed4ff',
-    SHORE:        '#2778bf',
-    DECK_DARK:    '#2a2f3a',
-    DECK_MID:     '#454c5b',
-    DECK_LIGHT:   '#5d6678',
-    DECK_RIVET:   '#8e96a8',
-    RUNWAY:       '#3a414f',
-    RUNWAY_LINE:  '#e3c14a',
+    SPACE_BG:     '#02040d',
+    SPACE_DUST:   '#0c1230',
+    STAR_DIM:     '#3a4570',
+    STAR_MID:     '#9eaedc',
+    STAR_HI:      '#ffffff',
+
+    NEBULA_DEEP:  '#170433',
+    NEBULA_MID:   '#311152',
+    NEBULA_HI:    '#5a2280',
+    NEBULA_PINK:  '#a23cb8',
+    NEBULA_CYAN:  '#3f5fb4',
+
+    ASTEROID_DARK:'#1e1a26',
+    ASTEROID_MID: '#39323f',
+    ASTEROID_HI:  '#5e545f',
+    ASTEROID_LIT: '#a2939a',
+    ASTEROID_DEEP:'#0e0b14',
+
+    STATION_DARK: '#0a1426',
+    STATION_MID:  '#1a2a4a',
+    STATION_HI:   '#2f4675',
+    STATION_NEON: '#5dffea',
+    STATION_NEON2:'#ff5de4',
 
     PLAYER_BODY:  '#3a78ff',
     PLAYER_LIGHT: '#7ba8ff',
@@ -1152,15 +1164,23 @@ function biomeAt(worldY) {
     const period = 1800;
     let phase = worldY % period;
     if (phase < 0) phase += period;
-    if (phase < 800)  return 'ocean';
-    if (phase < 880)  return 'shore';
-    if (phase < 1180) return 'deck';
-    if (phase < 1320) return 'runway';
-    if (phase < 1620) return 'deck';
-    return 'shore';
+    if (phase < 720)  return 'space';
+    if (phase < 1000) return 'nebula';
+    if (phase < 1200) return 'asteroids';
+    if (phase < 1380) return 'station';
+    if (phase < 1560) return 'asteroids';
+    return 'nebula';
 }
 
 function renderTerrain(ctx, w, h) {
+    // Layer 1: solid space-black ground.
+    ctx.fillStyle = COLOR.SPACE_BG;
+    ctx.fillRect(0, 0, w, h);
+
+    // Layer 2: distant parallax stars (slow scroll, never tiled).
+    renderFarStars(ctx, w, h);
+
+    // Layer 3: per-tile biome render at normal scroll speed.
     const offsetY = ((scrollY % TILE) + TILE) % TILE;
     const cols = Math.ceil(w / TILE) + 1;
     const rows = Math.ceil(h / TILE) + 2;
@@ -1177,63 +1197,145 @@ function renderTerrain(ctx, w, h) {
     }
 }
 
+function renderFarStars(ctx, w, h) {
+    // Stable far-parallax field — uses a slower scroll so it lags behind
+    // the tile layer and creates a sense of depth.
+    const FAR_SCROLL = scrollY * 0.25;
+    const STAR_PERIOD = 480;
+    const offset = ((FAR_SCROLL % STAR_PERIOD) + STAR_PERIOD) % STAR_PERIOD;
+    // ~36 stars repeating; positions stable in world space.
+    const starsA = [
+        [12, 18], [42, 60], [78, 5], [110, 90], [150, 30], [188, 110],
+        [220, 8], [256, 70], [292, 140], [322, 22], [356, 95], [38, 200],
+        [70, 250], [120, 180], [165, 320], [205, 230], [248, 290], [284, 200],
+        [320, 360], [350, 260], [16, 410], [54, 330], [98, 460], [140, 380],
+        [180, 440], [225, 410], [262, 470], [300, 420], [336, 460], [10, 110],
+        [62, 150], [200, 60], [310, 50], [25, 380], [365, 320], [180, 200]
+    ];
+    for (let i = 0; i < starsA.length; i++) {
+        const sx = starsA[i][0];
+        const baseY = starsA[i][1];
+        let y = (baseY - offset) % STAR_PERIOD;
+        if (y < 0) y += STAR_PERIOD;
+        if (y > h + 2) continue;
+        const bright = (i & 3) === 0;
+        ctx.fillStyle = bright ? COLOR.STAR_MID : COLOR.STAR_DIM;
+        ctx.fillRect(sx, y, 1, 1);
+    }
+}
+
 function drawTerrainTile(ctx, sx, sy, col, tileY, biome) {
-    const seed = (col * 73856093) ^ (tileY * 19349663);
-    const r = (seed & 0xff);
-    if (biome === 'ocean') {
-        ctx.fillStyle = COLOR.OCEAN_DARK;
-        ctx.fillRect(sx, sy, TILE, TILE);
-        ctx.fillStyle = COLOR.OCEAN_MID;
-        ctx.fillRect(sx, sy + 4, TILE, 2);
-        ctx.fillRect(sx, sy + 12, TILE, 2);
-        ctx.fillStyle = COLOR.OCEAN_LIGHT;
-        ctx.fillRect(sx, sy + 7, TILE, 1);
-        if ((r & 7) === 0) {
-            ctx.fillStyle = COLOR.FOAM;
-            ctx.fillRect(sx + 3 + (r & 3), sy + 8, 4, 1);
-            ctx.fillRect(sx + 9, sy + 9, 3, 1);
-        } else if ((r & 15) === 5) {
-            ctx.fillStyle = COLOR.FOAM;
-            ctx.fillRect(sx + 2, sy + 5, 3, 1);
+    const seed = ((col * 73856093) ^ (tileY * 19349663)) >>> 0;
+    const r = seed & 0xff;
+    const r2 = (seed >> 8) & 0xff;
+
+    if (biome === 'space') {
+        // Empty space — leave the SPACE_BG / parallax stars showing through,
+        // and sprinkle a few mid-layer stars locked to the tile grid.
+        if ((r & 31) === 0) {
+            ctx.fillStyle = COLOR.STAR_HI;
+            ctx.fillRect(sx + (r2 % TILE), sy + (r2 >> 4) % TILE, 1, 1);
+        } else if ((r & 15) === 3) {
+            ctx.fillStyle = COLOR.STAR_MID;
+            ctx.fillRect(sx + (r2 % TILE), sy + (r % TILE), 1, 1);
+        } else if ((r & 7) === 5) {
+            ctx.fillStyle = COLOR.STAR_DIM;
+            ctx.fillRect(sx + (r2 % TILE), sy + (r2 >> 3) % TILE, 1, 1);
         }
-    } else if (biome === 'shore') {
-        ctx.fillStyle = COLOR.SHORE;
+        return;
+    }
+
+    if (biome === 'nebula') {
+        // Translucent purple wash — built from a few semi-transparent layers
+        // so the underlying space + far stars still show through.
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = COLOR.NEBULA_DEEP;
         ctx.fillRect(sx, sy, TILE, TILE);
-        ctx.fillStyle = COLOR.OCEAN_LIGHT;
-        ctx.fillRect(sx, sy, TILE, 4);
-        ctx.fillStyle = COLOR.FOAM;
-        ctx.fillRect(sx, sy + 5, TILE, 1);
-        ctx.fillRect(sx, sy + 11, TILE, 1);
-    } else if (biome === 'deck') {
-        ctx.fillStyle = COLOR.DECK_DARK;
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = (r & 1) ? COLOR.NEBULA_MID : COLOR.NEBULA_HI;
+        ctx.fillRect(sx + 1, sy + (r & 7), TILE - 2, 4);
+        if ((r & 7) === 0) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = COLOR.NEBULA_PINK;
+            ctx.fillRect(sx + 2, sy + 4, TILE - 4, 6);
+        } else if ((r & 7) === 3) {
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = COLOR.NEBULA_CYAN;
+            ctx.fillRect(sx + 1, sy + 8, TILE - 2, 5);
+        }
+        ctx.globalAlpha = 1;
+        // Brighter foreground stars in the nebula.
+        if ((r & 7) === 1) {
+            ctx.fillStyle = COLOR.STAR_HI;
+            ctx.fillRect(sx + (r2 & 15), sy + ((r2 >> 4) & 15), 1, 1);
+        }
+        return;
+    }
+
+    if (biome === 'asteroids') {
+        // Asteroid belt: dark void with chunks of rock at semi-random spots.
+        // Leave gaps so stars peek through between rocks.
+        if ((r & 1) === 0) {
+            // Big rock
+            const rx = sx + (r2 & 7);
+            const ry = sy + ((r2 >> 3) & 7);
+            const rw = 6 + (r & 4);
+            const rh = 5 + (r2 & 3);
+            ctx.fillStyle = COLOR.ASTEROID_DEEP;
+            ctx.fillRect(rx - 1, ry - 1, rw + 2, rh + 2);
+            ctx.fillStyle = COLOR.ASTEROID_DARK;
+            ctx.fillRect(rx, ry, rw, rh);
+            ctx.fillStyle = COLOR.ASTEROID_MID;
+            ctx.fillRect(rx, ry, rw - 1, rh - 1);
+            ctx.fillStyle = COLOR.ASTEROID_HI;
+            ctx.fillRect(rx + 1, ry + 1, rw - 3, 1);
+            ctx.fillStyle = COLOR.ASTEROID_LIT;
+            ctx.fillRect(rx + 1, ry + 1, 1, 1);
+        } else if ((r & 3) === 1) {
+            // Pebble
+            ctx.fillStyle = COLOR.ASTEROID_MID;
+            ctx.fillRect(sx + (r2 & 7) + 4, sy + ((r2 >> 3) & 7) + 4, 3, 2);
+            ctx.fillStyle = COLOR.ASTEROID_HI;
+            ctx.fillRect(sx + (r2 & 7) + 4, sy + ((r2 >> 3) & 7) + 4, 1, 1);
+        }
+        // Stars between rocks
+        if ((r & 15) === 7) {
+            ctx.fillStyle = COLOR.STAR_DIM;
+            ctx.fillRect(sx + ((r2 >> 1) & 15), sy + ((r2 >> 5) & 15), 1, 1);
+        }
+        return;
+    }
+
+    if (biome === 'station') {
+        // Alien station hull: dark blue panels with neon stripes.
+        ctx.fillStyle = COLOR.STATION_DARK;
         ctx.fillRect(sx, sy, TILE, TILE);
-        ctx.fillStyle = COLOR.DECK_MID;
-        ctx.fillRect(sx, sy + 1, TILE, TILE - 2);
-        ctx.fillStyle = COLOR.DECK_LIGHT;
-        ctx.fillRect(sx, sy + 1, TILE, 1);
-        ctx.fillStyle = COLOR.DECK_RIVET;
+        ctx.fillStyle = COLOR.STATION_MID;
+        ctx.fillRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+        ctx.fillStyle = COLOR.STATION_HI;
+        ctx.fillRect(sx + 1, sy + 1, TILE - 2, 1);
+        // Panel seam
+        ctx.fillStyle = COLOR.STATION_DARK;
+        ctx.fillRect(sx, sy + 7, TILE, 1);
+        // Rivets
+        ctx.fillStyle = COLOR.STATION_HI;
         ctx.fillRect(sx + 3,  sy + 4,  1, 1);
         ctx.fillRect(sx + 12, sy + 4,  1, 1);
         ctx.fillRect(sx + 3,  sy + 11, 1, 1);
         ctx.fillRect(sx + 12, sy + 11, 1, 1);
-        // Seam line
-        ctx.fillStyle = COLOR.DECK_DARK;
-        ctx.fillRect(sx, sy + 7, TILE, 1);
-    } else if (biome === 'runway') {
-        ctx.fillStyle = COLOR.RUNWAY;
-        ctx.fillRect(sx, sy, TILE, TILE);
-        ctx.fillStyle = COLOR.DECK_DARK;
-        ctx.fillRect(sx, sy, TILE, 1);
-        ctx.fillRect(sx, sy + TILE - 1, TILE, 1);
-        // Yellow center stripe spans middle two columns.
-        if (col === Math.floor(GAME.width / TILE / 2) ||
-            col === Math.floor(GAME.width / TILE / 2) - 1) {
-            const dash = ((tileY % 4) < 2);
-            if (dash) {
-                ctx.fillStyle = COLOR.RUNWAY_LINE;
-                ctx.fillRect(sx + 4, sy + 2, TILE - 8, TILE - 4);
+        // Neon stripes down the center two columns of the canvas.
+        const midCol = Math.floor(GAME.width / TILE / 2);
+        if (col === midCol || col === midCol - 1) {
+            const flick = ((tileY * 7 + col) & 3) !== 0;
+            const neon = ((tileY + col) & 1) ? COLOR.STATION_NEON : COLOR.STATION_NEON2;
+            if (flick) {
+                ctx.fillStyle = neon;
+                ctx.fillRect(sx + 5, sy + 2, TILE - 10, TILE - 4);
+                ctx.fillStyle = COLOR.STAR_HI;
+                ctx.fillRect(sx + 6, sy + 4, TILE - 12, 1);
             }
         }
+        return;
     }
 }
 
@@ -1266,7 +1368,7 @@ function drawExtraHUD(ctx, w, h) {
     const barColor = player && player.weapon === 'laser' ? COLOR.BULLET_LASER : COLOR.BULLET_VULCAN;
     for (let i = 0; i < MAX_POWER; i++) {
         const x = meterX + i * (barW + barGap);
-        ctx.fillStyle = COLOR.DECK_DARK;
+        ctx.fillStyle = COLOR.STATION_DARK;
         ctx.fillRect(x, meterY, barW, barH);
         if (player && i < player.power) {
             ctx.fillStyle = barColor;
