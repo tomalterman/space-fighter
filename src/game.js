@@ -90,7 +90,12 @@ const MAX_POWER             = 5;
 const VULCAN_BULLET_SPEED   = 6;
 const LASER_BULLET_SPEED    = 9;
 
-const ENEMY_BULLET_BASE_SPEED = 1.7;
+const ENEMY_BULLET_BASE_SPEED = 1.25;
+
+// Warmup ramps difficulty from "very easy" to "normal" over the first
+// chunk of a run so the player has time to settle in.
+const WARMUP_DISTANCE       = 1600;
+const WARMUP_START          = 0.55;
 
 const POWERUP_SPEED         = 0.9;
 
@@ -106,28 +111,28 @@ const EXTEND_FIRST          = 30000;
 const EXTEND_INTERVAL       = 80000;
 
 const ENEMY_STATS = {
-    popcorn: { w: 14, h: 14, hp: 1,  score: 50,   fireCdMin: 70,  fireCdMax: 140, dropChance: 0.06 },
-    turret:  { w: 22, h: 20, hp: 3,  score: 200,  fireCdMin: 50,  fireCdMax: 110, dropChance: 0.30 },
-    bomber:  { w: 30, h: 28, hp: 5,  score: 1000, fireCdMin: 60,  fireCdMax: 110, dropChance: 1.00 }
+    popcorn: { w: 14, h: 14, hp: 1,  score: 50,   fireCdMin: 140, fireCdMax: 240, dropChance: 0.06 },
+    turret:  { w: 22, h: 20, hp: 3,  score: 200,  fireCdMin: 80,  fireCdMax: 150, dropChance: 0.30 },
+    bomber:  { w: 30, h: 28, hp: 5,  score: 1000, fireCdMin: 90,  fireCdMax: 150, dropChance: 1.00 }
 };
 
 // Wave timeline. `at` is "scroll units since the last loop reset"; the
 // schedule replays endlessly with bumped difficulty each loop.
 const WAVE_SCHEDULE = [
-    { at: 60,   kind: 'popcornStream', side: 'left',  count: 5 },
-    { at: 220,  kind: 'vFormation',    count: 5 },
-    { at: 380,  kind: 'popcornStream', side: 'right', count: 5 },
-    { at: 540,  kind: 'sineSweep',     count: 6, amp: 80 },
-    { at: 720,  kind: 'turretOnTerrain', offsets: [80, 304] },
-    { at: 880,  kind: 'vFormation',    count: 7 },
-    { at: 1040, kind: 'popcornStream', side: 'both',  count: 6 },
-    { at: 1220, kind: 'bomber' },
-    { at: 1380, kind: 'sineSweep',     count: 8, amp: 100 },
-    { at: 1560, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
-    { at: 1740, kind: 'vFormation',    count: 9 },
-    { at: 1920, kind: 'popcornStream', side: 'both',  count: 8 },
-    { at: 2120, kind: 'bomber' },
-    { at: 2300, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
+    { at: 180,  kind: 'popcornStream', side: 'left',  count: 4 },
+    { at: 360,  kind: 'vFormation',    count: 5 },
+    { at: 560,  kind: 'popcornStream', side: 'right', count: 4 },
+    { at: 760,  kind: 'sineSweep',     count: 5, amp: 70 },
+    { at: 960,  kind: 'turretOnTerrain', offsets: [80, 304] },
+    { at: 1140, kind: 'vFormation',    count: 6 },
+    { at: 1320, kind: 'popcornStream', side: 'both',  count: 5 },
+    { at: 1520, kind: 'bomber' },
+    { at: 1700, kind: 'sineSweep',     count: 7, amp: 90 },
+    { at: 1880, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
+    { at: 2060, kind: 'vFormation',    count: 8 },
+    { at: 2240, kind: 'popcornStream', side: 'both',  count: 7 },
+    { at: 2440, kind: 'bomber' },
+    { at: 2620, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
 ];
 
 const POWERUP_KINDS = ['P', 'P', 'P', 'red', 'blue', 'gold', 'B'];
@@ -503,7 +508,7 @@ function updateEnemies(dt) {
 
 function enemyFire(e) {
     if (!player) return;
-    const speed = ENEMY_BULLET_BASE_SPEED * (1 + difficultyLoop * 0.06);
+    const speed = ENEMY_BULLET_BASE_SPEED * (1 + difficultyLoop * 0.06) * warmupFactor();
 
     if (e.type === 'popcorn') {
         spawnAimedShot(e.x, e.y + 4, COLOR.EBULLET_PINK, COLOR.EBULLET_PINK_GLOW, speed * 1.05, 2.5);
@@ -604,6 +609,11 @@ function drawBomber(ctx, e) {
 // WAVE SPAWNING
 // =====================================================================
 
+function warmupFactor() {
+    const t = Math.min(1, scrollY / WARMUP_DISTANCE);
+    return WARMUP_START + (1 - WARMUP_START) * t;
+}
+
 function updateWaves(dt) {
     while (nextWaveIndex < WAVE_SCHEDULE.length &&
            (scrollY - waveBaseY) >= WAVE_SCHEDULE[nextWaveIndex].at) {
@@ -618,7 +628,7 @@ function updateWaves(dt) {
 }
 
 function spawnWave(wave) {
-    const speedMul = 1 + difficultyLoop * 0.08;
+    const speedMul = (1 + difficultyLoop * 0.07) * warmupFactor();
     switch (wave.kind) {
         case 'popcornStream': {
             const sides = wave.side === 'both' ? ['left', 'right'] : [wave.side];
@@ -631,8 +641,8 @@ function spawnWave(wave) {
                         20 + i * 24
                     );
                     e.pattern = 'drift';
-                    e.vx = (fromLeft ? 1 : -1) * (1.3 + Math.random() * 0.4) * speedMul;
-                    e.vy = 0.6 * speedMul;
+                    e.vx = (fromLeft ? 1 : -1) * (1.0 + Math.random() * 0.3) * speedMul;
+                    e.vy = 0.45 * speedMul;
                     enemies.push(e);
                 }
             }
@@ -651,7 +661,7 @@ function spawnWave(wave) {
                 );
                 e.pattern = 'down';
                 e.vx = 0;
-                e.vy = (1.4 + Math.random() * 0.2) * speedMul;
+                e.vy = (1.0 + Math.random() * 0.2) * speedMul;
                 enemies.push(e);
             }
             break;
@@ -665,7 +675,7 @@ function spawnWave(wave) {
                 e.amp = amp;
                 e.phase = i * 0.7;
                 e.anchorX = GAME.width / 2;
-                e.vy = (1.2 + Math.random() * 0.2) * speedMul;
+                e.vy = (0.9 + Math.random() * 0.2) * speedMul;
                 enemies.push(e);
             }
             break;
@@ -683,7 +693,7 @@ function spawnWave(wave) {
             const e = makeEnemy('bomber', GAME.width / 2, -36);
             e.pattern = 'down';
             e.vx = 0;
-            e.vy = 0.55 * speedMul;
+            e.vy = 0.4 * speedMul;
             enemies.push(e);
             break;
         }
