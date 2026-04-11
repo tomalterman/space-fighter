@@ -48,10 +48,13 @@ function drawTitleScreen(ctx) {
         ctx.fillText('Press any key or tap to start', centerX, h / 2 + 25);
     }
 
-    // Version
-    ctx.fillStyle = '#555';
-    ctx.font = '8px monospace';
-    ctx.fillText(GAME.version, centerX, h - 8);
+    // Version stamp -- bright bold in the top-right so you can confirm
+    // at a glance which build is loaded. Drawn at the end of the title
+    // screen so it overlays any custom gameTitleRender background art.
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(GAME.version || '').toUpperCase(), w - 6, 14);
 
     ctx.textAlign = 'left';
 }

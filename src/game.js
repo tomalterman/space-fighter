@@ -1472,14 +1472,8 @@ function gameTitleRender(ctx, w, h, time) {
         ctx.fillText('PRESS START', w / 2, h - 14);
     }
 
-    // Bright version stamp top-right so it's obvious which build is on
-    // screen. The engine also draws GAME.version dim at bottom-center
-    // (in src/engine/screens.js); this overlays it with something
-    // readable. Don't compete with the title text in the center.
-    ctx.fillStyle = COLOR.HUD_HI;
-    ctx.font = 'bold 12px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(GAME.version.toUpperCase(), w - 6, 14);
+    // (Version stamp is drawn by the engine in src/engine/screens.js,
+    //  in the top-right corner. No game-side override needed.)
 
     if (crtOn) drawCRT(ctx, w, h);
     ctx.textAlign = 'left';
