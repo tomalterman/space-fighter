@@ -44,6 +44,11 @@ const distDir = path.join(ROOT, 'dist');
 fs.mkdirSync(distDir, { recursive: true });
 fs.writeFileSync(path.join(distDir, 'index.html'), output);
 
+// Also publish to repo root so GitHub Pages (legacy mode, source main:/)
+// can serve the latest build directly. The CI workflow at
+// .github/workflows/build.yml keeps this file in sync on every push.
+fs.writeFileSync(path.join(ROOT, 'index.html'), output);
+
 const lines = output.split('\n').length;
 const size = (Buffer.byteLength(output) / 1024).toFixed(1);
-console.log(`Built dist/index.html (${lines} lines, ${size} KB)`);
+console.log(`Built dist/index.html and index.html (${lines} lines, ${size} KB)`);

@@ -1,0 +1,40 @@
+name: Build and sync index.html
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build bundle
+        run: node build.js
+
+      - name: Commit rebuilt index.html if changed
+        run: |
+          if [ -n "$(git status --porcelain index.html dist/index.html)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html dist/index.html
+            git commit -m "chore: rebuild index.html [skip ci]"
+            git push
+          else
+            echo "index.html already in sync — nothing to commit"
+          fi
