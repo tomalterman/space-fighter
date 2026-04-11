@@ -70,17 +70,20 @@ const COLOR = {
     HUD_HI:       '#ffd23a',
     HUD_LABEL:    '#9faec5',
 
-    POPCORN_BODY: '#c63a3a',
-    POPCORN_HI:   '#ff7878',
-    POPCORN_DARK: '#621a1a',
-    TURRET_BASE:  '#5d6678',
-    TURRET_DARK:  '#2a2f3a',
-    TURRET_GUN:   '#bcc4d4',
-    TURRET_LIGHT: '#ffd23a',
-    BOMBER_BODY:  '#7d4a8a',
-    BOMBER_HI:    '#b97dcd',
-    BOMBER_DARK:  '#3a1f44',
-    BOMBER_COCK:  '#ffd23a'
+    POPCORN_BODY: '#ff3b3b',
+    POPCORN_HI:   '#ffb0a0',
+    POPCORN_DARK: '#7a0d0d',
+    POPCORN_HALO: '#ffd2a0',
+    TURRET_BASE:  '#9da9bf',
+    TURRET_DARK:  '#1c2230',
+    TURRET_GUN:   '#e8f0ff',
+    TURRET_LIGHT: '#ffeb3a',
+    TURRET_HALO:  '#5dffea',
+    BOMBER_BODY:  '#c460e0',
+    BOMBER_HI:    '#ffb3ff',
+    BOMBER_DARK:  '#2a0d3a',
+    BOMBER_COCK:  '#ffeb3a',
+    BOMBER_HALO:  '#ff5de4'
 };
 
 const TILE = 16;
@@ -131,20 +134,20 @@ const ENEMY_STATS = {
 // Wave timeline. `at` is "scroll units since the last loop reset"; the
 // schedule replays endlessly with bumped difficulty each loop.
 const WAVE_SCHEDULE = [
-    { at: 320,  kind: 'popcornStream', side: 'left',  count: 3 },
+    { at: 320,  kind: 'vFormation',    count: 3 },
     { at: 520,  kind: 'vFormation',    count: 4 },
-    { at: 720,  kind: 'popcornStream', side: 'right', count: 4 },
+    { at: 720,  kind: 'sineSweep',     count: 4, amp: 60 },
     { at: 900,  kind: 'sineSweep',     count: 5, amp: 70 },
-    { at: 960,  kind: 'turretOnTerrain', offsets: [80, 304] },
-    { at: 1140, kind: 'vFormation',    count: 6 },
-    { at: 1320, kind: 'popcornStream', side: 'both',  count: 5 },
-    { at: 1520, kind: 'bomber' },
-    { at: 1700, kind: 'sineSweep',     count: 7, amp: 90 },
-    { at: 1880, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
-    { at: 2060, kind: 'vFormation',    count: 8 },
-    { at: 2240, kind: 'popcornStream', side: 'both',  count: 7 },
-    { at: 2440, kind: 'bomber' },
-    { at: 2620, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
+    { at: 1080, kind: 'turretOnTerrain', offsets: [80, 304] },
+    { at: 1260, kind: 'vFormation',    count: 6 },
+    { at: 1440, kind: 'sineSweep',     count: 6, amp: 90 },
+    { at: 1620, kind: 'bomber' },
+    { at: 1800, kind: 'sineSweep',     count: 7, amp: 90 },
+    { at: 1980, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
+    { at: 2160, kind: 'vFormation',    count: 8 },
+    { at: 2340, kind: 'sineSweep',     count: 7, amp: 100 },
+    { at: 2520, kind: 'bomber' },
+    { at: 2700, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
 ];
 
 const POWERUP_KINDS = ['P', 'P', 'P', 'red', 'blue', 'gold', 'B'];
@@ -547,6 +550,14 @@ function renderEnemies(ctx) {
 
 function drawPopcorn(ctx, e) {
     const x = e.x, y = e.y;
+    // Bright halo / outline silhouette so the ship reads against any biome.
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = COLOR.POPCORN_HALO;
+    ctx.fillRect(x - 9, y - 8, 18, 17);
+    ctx.globalAlpha = 1;
+    // Crisp 1px outline immediately around the silhouette.
+    ctx.fillStyle = COLOR.STAR_HI;
+    ctx.fillRect(x - 8, y - 7, 16, 15);
     // Wings
     ctx.fillStyle = COLOR.POPCORN_DARK;
     ctx.fillRect(x - 7, y - 1, 4, 5);
@@ -566,6 +577,14 @@ function drawPopcorn(ctx, e) {
 
 function drawTurret(ctx, e) {
     const x = e.x, y = e.y;
+    // Cyan halo
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = COLOR.TURRET_HALO;
+    ctx.fillRect(x - 13, y - 10, 26, 22);
+    ctx.globalAlpha = 1;
+    // Crisp outline
+    ctx.fillStyle = COLOR.STAR_HI;
+    ctx.fillRect(x - 12, y - 9, 24, 18);
     // Base ring
     ctx.fillStyle = COLOR.TURRET_DARK;
     ctx.fillRect(x - 11, y - 8, 22, 16);
@@ -589,6 +608,14 @@ function drawTurret(ctx, e) {
 
 function drawBomber(ctx, e) {
     const x = e.x, y = e.y;
+    // Magenta halo
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = COLOR.BOMBER_HALO;
+    ctx.fillRect(x - 17, y - 14, 34, 28);
+    ctx.globalAlpha = 1;
+    // Crisp outline
+    ctx.fillStyle = COLOR.STAR_HI;
+    ctx.fillRect(x - 16, y - 13, 32, 26);
     // Wings
     ctx.fillStyle = COLOR.BOMBER_DARK;
     ctx.fillRect(x - 15, y - 4, 7, 9);
@@ -642,24 +669,6 @@ function updateWaves(dt) {
 function spawnWave(wave) {
     const speedMul = (1 + difficultyLoop * 0.07) * warmupFactor();
     switch (wave.kind) {
-        case 'popcornStream': {
-            const sides = wave.side === 'both' ? ['left', 'right'] : [wave.side];
-            for (const side of sides) {
-                for (let i = 0; i < wave.count; i++) {
-                    const fromLeft = side === 'left';
-                    const e = makeEnemy(
-                        'popcorn',
-                        fromLeft ? -16 : GAME.width + 16,
-                        20 + i * 24
-                    );
-                    e.pattern = 'drift';
-                    e.vx = (fromLeft ? 1 : -1) * (1.0 + Math.random() * 0.3) * speedMul;
-                    e.vy = 0.45 * speedMul;
-                    enemies.push(e);
-                }
-            }
-            break;
-        }
         case 'vFormation': {
             const count = wave.count;
             const cx = GAME.width / 2;
