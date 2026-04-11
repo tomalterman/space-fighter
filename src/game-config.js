@@ -2,10 +2,10 @@
 // Edit this file to configure your game.
 
 const GAME = {
-    title: 'BLOCK DODGE',
-    subtitle: 'HOW LONG CAN YOU SURVIVE?',
-    version: 'v1',
-    bgColor: '#1a1a2e',
+    title: 'SPACE FIGHTER',
+    subtitle: 'GUARD THE GALAXY',
+    version: 'v3',
+    bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
     // Leave as-is to use local-only high scores
@@ -19,7 +19,7 @@ const GAME = {
         appId: ""
     },
     firebasePath: 'highscores',
-    localStoragePrefix: 'blockDodge',
+    localStoragePrefix: 'spaceFighter',
 
     // Canvas resolution (384x216 = SNES-style, recommended)
     width: 384,
@@ -31,12 +31,16 @@ const GAME = {
     // keys: keyboard codes that map to this control
     controls: [
         { id: 'left',  label: 'LEFT',  keys: ['ArrowLeft', 'KeyA'] },
-        { id: 'right', label: 'RIGHT', keys: ['ArrowRight', 'KeyD'] }
+        { id: 'right', label: 'RIGHT', keys: ['ArrowRight', 'KeyD'] },
+        { id: 'fire',  label: 'FIRE',  keys: ['Space'] },
+        { id: 'bomb',  label: 'BOMB',  keys: ['ShiftLeft', 'ShiftRight'] }
     ],
 
     // Desktop instructions (hidden on touch devices)
     instructions: [
-        { label: 'MOVE LEFT', keys: 'Arrow Left or A' },
-        { label: 'MOVE RIGHT', keys: 'Arrow Right or D' }
+        { label: 'MOVE', keys: 'Arrow Keys or A/D' },
+        { label: 'FIRE', keys: 'Space' },
+        { label: 'BOMB', keys: 'Shift' },
+        { label: 'CRT',  keys: 'C' }
     ]
 };
