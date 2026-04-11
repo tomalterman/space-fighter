@@ -160,7 +160,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v12',
+    version: 'v13',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -2877,7 +2877,7 @@ function setupTouchControls() {
             }
 
             /* --- Phone defaults --- */
-            #virtualDpad { width: 110px; height: 110px; bottom: 24px; left: 36px; }
+            #virtualDpad { width: 88px; height: 88px; bottom: 18px; left: 18px; }
             #touch_fire {
                 bottom: 24px; right: 28px;
                 width: 76px !important; height: 76px !important;
@@ -2890,11 +2890,10 @@ function setupTouchControls() {
             }
         }
 
-        /* --- Tablet (>=700px): bigger ergonomic sizes for an iPad in
-               landscape, with the d-pad on the bottom-left and FIRE/BOMB
-               firmly in the bottom-right corner area. --- */
+        /* --- Tablet (>=700px): smaller corner-hugging d-pad on the
+               bottom-left, FIRE/BOMB on the bottom-right. --- */
         @media (pointer: coarse) and (min-width: 700px) {
-            #virtualDpad { width: 150px; height: 150px; bottom: 50px; left: 90px; }
+            #virtualDpad { width: 120px; height: 120px; bottom: 30px; left: 30px; }
             #touch_fire {
                 bottom: 50px; right: 70px;
                 width: 100px !important; height: 100px !important;
@@ -2925,8 +2924,9 @@ function setupTouchControls() {
         const dy = touch.clientY - cy;
         // Per-axis dead zone — naturally creates a square dead area in
         // the center and supports 8-direction (touch in upper-right of
-        // d-pad sets both up and right).
-        const deadZone = rect.width * 0.18;
+        // d-pad sets both up and right). Small dead zone so a kid's
+        // thumb activates a direction quickly.
+        const deadZone = rect.width * 0.13;
         Engine.input.left  = dx < -deadZone;
         Engine.input.right = dx >  deadZone;
         Engine.input.up    = dy < -deadZone;
