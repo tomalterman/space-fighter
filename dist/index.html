@@ -160,7 +160,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v3',
+    version: 'v4',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -1306,10 +1306,10 @@ const ENEMY_STATS = {
 // Wave timeline. `at` is "scroll units since the last loop reset"; the
 // schedule replays endlessly with bumped difficulty each loop.
 const WAVE_SCHEDULE = [
-    { at: 180,  kind: 'popcornStream', side: 'left',  count: 4 },
-    { at: 360,  kind: 'vFormation',    count: 5 },
-    { at: 560,  kind: 'popcornStream', side: 'right', count: 4 },
-    { at: 760,  kind: 'sineSweep',     count: 5, amp: 70 },
+    { at: 320,  kind: 'popcornStream', side: 'left',  count: 3 },
+    { at: 520,  kind: 'vFormation',    count: 4 },
+    { at: 720,  kind: 'popcornStream', side: 'right', count: 4 },
+    { at: 900,  kind: 'sineSweep',     count: 5, amp: 70 },
     { at: 960,  kind: 'turretOnTerrain', offsets: [80, 304] },
     { at: 1140, kind: 'vFormation',    count: 6 },
     { at: 1320, kind: 'popcornStream', side: 'both',  count: 5 },
@@ -2356,25 +2356,34 @@ function renderTerrain(ctx, w, h) {
     renderFarStars(ctx, w, h);
 
     // Layer 3: per-tile biome render at normal scroll speed.
-    const offsetY = ((scrollY % TILE) + TILE) % TILE;
+    //
+    // Vertical-shmup convention: the player flies "forward" (north in world
+    // space) and the world scrolls DOWN past them. So a fixed worldY tile
+    // must move DOWN the screen as scrollY grows. Mapping:
+    //   screenY = h + scrollY - worldY
+    //   worldY  = h + scrollY - screenY
+    //
+    // Top of screen (screenY=0) shows the largest visible worldY (the
+    // newest content the player is approaching); bottom (screenY=h) shows
+    // the world directly under the player.
     const cols = Math.ceil(w / TILE) + 1;
-    const rows = Math.ceil(h / TILE) + 2;
-    const baseTileY = Math.floor(scrollY / TILE);
-    for (let row = -1; row < rows; row++) {
-        const screenY = row * TILE - offsetY;
-        const worldY  = scrollY + screenY;
-        const tileY   = baseTileY + row;
-        const biome   = biomeAt(worldY);
+    const numTiles = Math.ceil(h / TILE) + 2;
+    const topWorldY = h + scrollY + TILE;
+    const topTileY = Math.floor(topWorldY / TILE);
+    for (let i = 0; i < numTiles; i++) {
+        const tileY = topTileY - i;
+        const worldY = tileY * TILE;
+        const screenY = h + scrollY - worldY;
+        const biome = biomeAt(worldY);
         for (let col = 0; col < cols; col++) {
-            const screenX = col * TILE;
-            drawTerrainTile(ctx, screenX, screenY, col, tileY, biome);
+            drawTerrainTile(ctx, col * TILE, screenY, col, tileY, biome);
         }
     }
 }
 
 function renderFarStars(ctx, w, h) {
-    // Stable far-parallax field — uses a slower scroll so it lags behind
-    // the tile layer and creates a sense of depth.
+    // Stable far-parallax field — slower scroll than tiles, lags behind to
+    // create depth. Stars also move DOWN as scrollY grows.
     const FAR_SCROLL = scrollY * 0.25;
     const STAR_PERIOD = 480;
     const offset = ((FAR_SCROLL % STAR_PERIOD) + STAR_PERIOD) % STAR_PERIOD;
@@ -2390,7 +2399,7 @@ function renderFarStars(ctx, w, h) {
     for (let i = 0; i < starsA.length; i++) {
         const sx = starsA[i][0];
         const baseY = starsA[i][1];
-        let y = (baseY - offset) % STAR_PERIOD;
+        let y = (baseY + offset) % STAR_PERIOD;
         if (y < 0) y += STAR_PERIOD;
         if (y > h + 2) continue;
         const bright = (i & 3) === 0;
