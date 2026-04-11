@@ -550,14 +550,6 @@ function renderEnemies(ctx) {
 
 function drawPopcorn(ctx, e) {
     const x = e.x, y = e.y;
-    // Bright halo / outline silhouette so the ship reads against any biome.
-    ctx.globalAlpha = 0.45;
-    ctx.fillStyle = COLOR.POPCORN_HALO;
-    ctx.fillRect(x - 9, y - 8, 18, 17);
-    ctx.globalAlpha = 1;
-    // Crisp 1px outline immediately around the silhouette.
-    ctx.fillStyle = COLOR.STAR_HI;
-    ctx.fillRect(x - 8, y - 7, 16, 15);
     // Wings
     ctx.fillStyle = COLOR.POPCORN_DARK;
     ctx.fillRect(x - 7, y - 1, 4, 5);
@@ -577,14 +569,6 @@ function drawPopcorn(ctx, e) {
 
 function drawTurret(ctx, e) {
     const x = e.x, y = e.y;
-    // Cyan halo
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = COLOR.TURRET_HALO;
-    ctx.fillRect(x - 13, y - 10, 26, 22);
-    ctx.globalAlpha = 1;
-    // Crisp outline
-    ctx.fillStyle = COLOR.STAR_HI;
-    ctx.fillRect(x - 12, y - 9, 24, 18);
     // Base ring
     ctx.fillStyle = COLOR.TURRET_DARK;
     ctx.fillRect(x - 11, y - 8, 22, 16);
@@ -608,14 +592,6 @@ function drawTurret(ctx, e) {
 
 function drawBomber(ctx, e) {
     const x = e.x, y = e.y;
-    // Magenta halo
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = COLOR.BOMBER_HALO;
-    ctx.fillRect(x - 17, y - 14, 34, 28);
-    ctx.globalAlpha = 1;
-    // Crisp outline
-    ctx.fillStyle = COLOR.STAR_HI;
-    ctx.fillRect(x - 16, y - 13, 32, 26);
     // Wings
     ctx.fillStyle = COLOR.BOMBER_DARK;
     ctx.fillRect(x - 15, y - 4, 7, 9);
