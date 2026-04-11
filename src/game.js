@@ -177,6 +177,7 @@ let shakeOffsetY = 0;
 
 let crtOn = false;
 let crtListenerAttached = false;
+let dpadStyleAttached = false;
 
 let nextExtendScore = EXTEND_FIRST;
 
@@ -222,6 +223,11 @@ function gameInit() {
         });
         crtListenerAttached = true;
     }
+
+    // Re-style the engine's auto-generated touch buttons into a proper
+    // d-pad cluster on the left and a fire/bomb cluster on the right,
+    // overriding the engine's default flex row.
+    setupDpadLayout();
 
     // Drop the attract demo so it does not bleed into a real run.
     demoState = null;
@@ -1587,6 +1593,59 @@ function gameOverRender(ctx, w, h) {
     renderEnemyBullets(ctx);
     renderExplosions(ctx);
     if (crtOn) drawCRT(ctx, w, h);
+}
+
+// =====================================================================
+// TOUCH D-PAD LAYOUT
+// =====================================================================
+//
+// The engine in src/engine/input.js auto-generates one touch button per
+// GAME.controls entry inside #touchControls and lays them out as a flex
+// row. Six buttons in a row is cramped. Inject a stylesheet here that
+// overrides the row, absolutely positions the four directional buttons
+// in a cross on the bottom left, and groups fire/bomb on the bottom
+// right with FIRE oversized for primary-thumb ergonomics. Phone and
+// tablet (>=700px) get distinct sizings.
+
+function setupDpadLayout() {
+    if (dpadStyleAttached) return;
+    dpadStyleAttached = true;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        @media (pointer: coarse) {
+            #touchControls {
+                display: block !important;
+                justify-content: initial !important;
+                padding: 0 !important;
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+            }
+            #touchControls .touchBtn {
+                position: absolute;
+            }
+
+            /* --- Phone defaults (80px buttons) --- */
+            #touch_up    { bottom: 196px; left:  90px; }
+            #touch_left  { bottom: 108px; left:   8px; }
+            #touch_right { bottom: 108px; left: 172px; }
+            #touch_down  { bottom:  20px; left:  90px; }
+            #touch_fire  { bottom:  40px; right: 20px; width: 100px !important; height: 100px !important; }
+            #touch_bomb  { bottom: 160px; right: 30px; }
+        }
+
+        /* --- Tablet (>=700px): bigger buttons, wider spacing --- */
+        @media (pointer: coarse) and (min-width: 700px) {
+            #touch_up    { bottom: 300px; left: 140px; }
+            #touch_left  { bottom: 170px; left:  10px; }
+            #touch_right { bottom: 170px; left: 270px; }
+            #touch_down  { bottom:  40px; left: 140px; }
+            #touch_fire  { bottom:  60px; right: 40px; width: 160px !important; height: 160px !important; }
+            #touch_bomb  { bottom: 240px; right: 70px; }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // =====================================================================
