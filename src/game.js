@@ -1466,6 +1466,15 @@ function gameTitleRender(ctx, w, h, time) {
         ctx.fillText('PRESS START', w / 2, h - 14);
     }
 
+    // Bright version stamp top-right so it's obvious which build is on
+    // screen. The engine also draws GAME.version dim at bottom-center
+    // (in src/engine/screens.js); this overlays it with something
+    // readable. Don't compete with the title text in the center.
+    ctx.fillStyle = COLOR.HUD_HI;
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(GAME.version.toUpperCase(), w - 6, 14);
+
     if (crtOn) drawCRT(ctx, w, h);
     ctx.textAlign = 'left';
 }
@@ -1644,6 +1653,14 @@ function setupTouchControls() {
                but the virtual dpad replaces them visually. */
             #touch_up, #touch_down, #touch_left, #touch_right {
                 display: none !important;
+            }
+
+            /* All remaining touch buttons must be absolutely positioned
+               so the per-button bottom/right offsets below take effect.
+               Without this they flow from the top-left of #touchControls
+               and end up sitting next to the score HUD. */
+            #touchControls .touchBtn {
+                position: absolute !important;
             }
 
             #virtualDpad {

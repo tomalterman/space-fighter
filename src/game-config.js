@@ -4,7 +4,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v11',
+    version: 'v12',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
