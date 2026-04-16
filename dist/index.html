@@ -160,7 +160,7 @@
 const GAME = {
     title: 'SPACE FIGHTER',
     subtitle: 'GUARD THE GALAXY',
-    version: 'v16',
+    version: 'v17',
     bgColor: '#02040d',
 
     // Firebase - see README.md for setup instructions
@@ -1269,7 +1269,19 @@ const COLOR = {
     BOMBER_HI:    '#ffb3ff',
     BOMBER_DARK:  '#2a0d3a',
     BOMBER_COCK:  '#ffeb3a',
-    BOMBER_HALO:  '#ff5de4'
+    BOMBER_HALO:  '#ff5de4',
+
+    CYBORG_DARK:  '#1a1a28',
+    CYBORG_BODY:  '#5a6778',
+    CYBORG_HI:    '#c0cbd8',
+    CYBORG_EYE:   '#ff2a3a',
+    CYBORG_EYE_HI:'#ffdede',
+    CYBORG_NEON:  '#5dffea',
+    CYBORG_JOINT: '#2a2f42',
+    ROCKET_BODY:  '#ffae3a',
+    ROCKET_HI:    '#fff3a0',
+    ROCKET_TRAIL: '#6b6b78',
+    POWER_ROCKET: '#ff7a2a'
 };
 
 const TILE = 16;
@@ -1277,6 +1289,7 @@ const TILE = 16;
 const PLAYER_SPEED          = 2.4;
 const PLAYER_FIRE_COOLDOWN  = 6;
 const LASER_FIRE_COOLDOWN   = 5;
+const ROCKET_FIRE_COOLDOWN  = 30;
 const PLAYER_HITBOX_OFFSET  = -2;
 const RESPAWN_INVULN        = 90;
 const RESPAWN_X_FRAC        = 0.5;
@@ -1290,6 +1303,8 @@ const MAX_POWER             = 5;
 
 const VULCAN_BULLET_SPEED   = 6;
 const LASER_BULLET_SPEED    = 9;
+const ROCKET_BULLET_SPEED   = 4.5;
+const ROCKET_BLAST_RADIUS   = 60;
 
 const ENEMY_BULLET_BASE_SPEED = 1.25;
 
@@ -1314,7 +1329,8 @@ const EXTEND_INTERVAL       = 80000;
 const ENEMY_STATS = {
     popcorn: { w: 14, h: 14, hp: 1,  score: 50,   fireCdMin: 140, fireCdMax: 240, dropChance: 0.06 },
     turret:  { w: 22, h: 20, hp: 3,  score: 200,  fireCdMin: 80,  fireCdMax: 150, dropChance: 0.30 },
-    bomber:  { w: 30, h: 28, hp: 5,  score: 1000, fireCdMin: 90,  fireCdMax: 150, dropChance: 1.00 }
+    bomber:  { w: 30, h: 28, hp: 5,  score: 1000, fireCdMin: 90,  fireCdMax: 150, dropChance: 1.00 },
+    cyborg:  { w: 48, h: 56, hp: 3,  score: 5000, fireCdMin: 70,  fireCdMax: 110, dropChance: 1.00 }
 };
 
 // Wave timeline. `at` is "scroll units since the last loop reset"; the
@@ -1327,13 +1343,46 @@ const WAVE_SCHEDULE = [
     { at: 900,  kind: 'turretOnTerrain', offsets: [80, 304] },
     { at: 1080, kind: 'vFormation',    count: 6 },
     { at: 1260, kind: 'sineSweep',     count: 6, amp: 90 },
-    { at: 1440, kind: 'bomber' },
+    { at: 1440, kind: 'bossWave' },
     { at: 1620, kind: 'sineSweep',     count: 7, amp: 90 },
     { at: 1800, kind: 'turretOnTerrain', offsets: [60, 192, 324] },
     { at: 1980, kind: 'vFormation',    count: 8 },
     { at: 2160, kind: 'sineSweep',     count: 7, amp: 100 },
-    { at: 2340, kind: 'bomber' },
+    { at: 2340, kind: 'bossWave' },
     { at: 2520, kind: 'turretOnTerrain', offsets: [40, 130, 254, 344] }
+];
+
+// Boss encounter progression — advances each time a bossWave spawns. The
+// final entry repeats; existing difficultyLoop scaling keeps it getting
+// harder.
+const BOSS_PROGRESSION = [
+    // 1st boss: lone bomber (the original "boss" from v16 and earlier).
+    [ { type: 'bomber', x: 'center',    y: -36,  offsetX:  0  } ],
+    // 2nd boss: the new cyborg makes its debut.
+    [ { type: 'cyborg', x: 'center',    y: -50,  offsetX:  0  } ],
+    // 3rd: cyborg + bomber escorts in side by side.
+    [
+        { type: 'cyborg', x: 'center', y:  -50, offsetX: -60 },
+        { type: 'bomber', x: 'center', y:  -40, offsetX:  50 }
+    ],
+    // 4th: double cyborg, staggered.
+    [
+        { type: 'cyborg', x: 'center', y:  -50, offsetX: -70 },
+        { type: 'cyborg', x: 'center', y:  -90, offsetX:  70 }
+    ],
+    // 5th: 2 cyborgs + a bomber.
+    [
+        { type: 'cyborg', x: 'center', y:  -50, offsetX: -80 },
+        { type: 'cyborg', x: 'center', y:  -90, offsetX:  80 },
+        { type: 'bomber', x: 'center', y: -130, offsetX:   0 }
+    ],
+    // 6th+: 2 cyborgs + 2 bombers (then repeats under scaled difficulty).
+    [
+        { type: 'cyborg', x: 'center', y:  -50, offsetX: -80 },
+        { type: 'cyborg', x: 'center', y:  -90, offsetX:  80 },
+        { type: 'bomber', x: 'center', y: -140, offsetX: -40 },
+        { type: 'bomber', x: 'center', y: -140, offsetX:  40 }
+    ]
 ];
 
 const POWERUP_KINDS = ['P', 'P', 'P', 'red', 'blue', 'gold', 'B'];
@@ -1353,6 +1402,7 @@ let scrollY = 0;
 let waveBaseY = 0;
 let nextWaveIndex = 0;
 let difficultyLoop = 0;
+let bossEncounterIndex = 0;
 
 let bombFlash = 0;
 let bombCount = STARTING_BOMBS;
@@ -1392,6 +1442,7 @@ function gameInit() {
     waveBaseY = 0;
     nextWaveIndex = 0;
     difficultyLoop = 0;
+    bossEncounterIndex = 0;
 
     bombFlash = 0;
     bombCount = STARTING_BOMBS;
@@ -1509,9 +1560,13 @@ function updatePlayer(dt) {
 
     if (Engine.input.fire && player.fireCooldown <= 0) {
         firePlayerWeapon();
-        player.fireCooldown = (player.weapon === 'laser')
-            ? LASER_FIRE_COOLDOWN
-            : PLAYER_FIRE_COOLDOWN;
+        if (player.weapon === 'laser') {
+            player.fireCooldown = LASER_FIRE_COOLDOWN;
+        } else if (player.weapon === 'rocket') {
+            player.fireCooldown = ROCKET_FIRE_COOLDOWN;
+        } else {
+            player.fireCooldown = PLAYER_FIRE_COOLDOWN;
+        }
     }
 
     // Bomb on rising edge of input only.
@@ -1556,7 +1611,7 @@ function firePlayerWeapon() {
             spawnVulcan(px,     py - 2, 0,    -VULCAN_BULLET_SPEED * 1.1);
         }
         Engine.Sound.play('shoot');
-    } else {
+    } else if (player.weapon === 'laser') {
         // Laser: parallel thin beams scaling with power.
         const beamCount = Math.min(player.power, MAX_POWER);
         for (let i = 0; i < beamCount; i++) {
@@ -1564,6 +1619,34 @@ function firePlayerWeapon() {
             spawnLaser(px + offset, py, 0, -LASER_BULLET_SPEED);
         }
         Engine.Sound.play('laser');
+    } else {
+        // Rocket: slow fire rate, big AOE. Tracer vulcans fill in some
+        // gap-fire at higher power so the player is never defenseless.
+        const power = player.power;
+        if (power === 1) {
+            spawnRocket(px, py, 0, -ROCKET_BULLET_SPEED);
+        } else if (power === 2) {
+            spawnRocket(px, py, 0, -ROCKET_BULLET_SPEED);
+            spawnVulcan(px - 6, py + 2, -0.4, -VULCAN_BULLET_SPEED);
+            spawnVulcan(px + 6, py + 2,  0.4, -VULCAN_BULLET_SPEED);
+        } else if (power === 3) {
+            spawnRocket(px - 5, py + 2, -0.35, -ROCKET_BULLET_SPEED);
+            spawnRocket(px + 5, py + 2,  0.35, -ROCKET_BULLET_SPEED);
+        } else if (power === 4) {
+            spawnRocket(px - 5, py + 2, -0.35, -ROCKET_BULLET_SPEED);
+            spawnRocket(px + 5, py + 2,  0.35, -ROCKET_BULLET_SPEED);
+            spawnVulcan(px - 9, py + 4, -0.8, -VULCAN_BULLET_SPEED);
+            spawnVulcan(px + 9, py + 4,  0.8, -VULCAN_BULLET_SPEED);
+        } else {
+            spawnRocket(px,     py,    0,     -ROCKET_BULLET_SPEED);
+            spawnRocket(px - 7, py + 3, -0.45, -ROCKET_BULLET_SPEED * 0.95);
+            spawnRocket(px + 7, py + 3,  0.45, -ROCKET_BULLET_SPEED * 0.95);
+        }
+        Engine.Sound.play('shoot');
+        // Extra rocket-launch smoke
+        Engine.spawnParticle(px, py + 1, 0, 1.5, 2, COLOR.ROCKET_TRAIL, 12);
+        Engine.spawnParticle(px - 1, py + 2, -0.6, 1.2, 1, COLOR.ROCKET_TRAIL, 10);
+        Engine.spawnParticle(px + 1, py + 2, 0.6, 1.2, 1, COLOR.ROCKET_TRAIL, 10);
     }
 
     // Muzzle flash sparks.
@@ -1587,6 +1670,17 @@ function spawnLaser(x, y, vx, vy) {
         x, y, vx, vy,
         w: 2, h: 14,
         damage: 1.5 + Math.floor((player.power - 1) / 2)
+    });
+}
+
+function spawnRocket(x, y, vx, vy) {
+    playerBullets.push({
+        kind: 'rocket',
+        x, y, vx, vy,
+        w: 5, h: 10,
+        damage: 2,
+        age: 0,
+        trailTick: 0
     });
 }
 
@@ -1650,6 +1744,29 @@ function updatePlayerBullets(dt) {
         const b = playerBullets[i];
         b.x += b.vx * dt;
         b.y += b.vy * dt;
+        if (b.kind === 'rocket') {
+            b.age = (b.age || 0) + dt;
+            b.trailTick = (b.trailTick || 0) + dt;
+            if (b.trailTick >= 2) {
+                b.trailTick = 0;
+                Engine.spawnParticle(
+                    b.x, b.y + 5,
+                    (Math.random() - 0.5) * 0.3,
+                    0.4 + Math.random() * 0.3,
+                    1 + Math.random(),
+                    Math.random() < 0.5 ? COLOR.ROCKET_TRAIL : '#e08a3a',
+                    10 + Math.random() * 6
+                );
+            }
+            if (b.y < -20) {
+                // Detonate on ceiling exit so the player gets a visible
+                // burst even on overshoots. Splash-damages anything on
+                // screen near the top.
+                explodeRocket(b.x, 4, b.damage);
+                playerBullets.splice(i, 1);
+                continue;
+            }
+        }
         if (b.y < -20 || b.x < -20 || b.x > GAME.width + 20) {
             playerBullets.splice(i, 1);
         }
@@ -1663,11 +1780,33 @@ function renderPlayerBullets(ctx) {
             ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
             ctx.fillStyle = COLOR.BULLET_VULCAN_HI;
             ctx.fillRect(b.x - 1, b.y - b.h / 2, 2, 2);
-        } else {
+        } else if (b.kind === 'laser') {
             ctx.fillStyle = COLOR.BULLET_LASER;
             ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
             ctx.fillStyle = COLOR.BULLET_LASER_HI;
             ctx.fillRect(b.x - 0.5, b.y - b.h / 2, 1, b.h);
+        } else {
+            // Rocket (player projectile): pointed-up missile with flame.
+            const flick = (Math.floor(b.age * 0.5) % 2) === 0;
+            // Flame tail
+            ctx.fillStyle = flick ? '#ffea3a' : '#ff7a2a';
+            ctx.fillRect(b.x - 1, b.y + 4, 2, 3);
+            ctx.fillStyle = '#fff3a0';
+            ctx.fillRect(b.x - 0.5, b.y + 4, 1, flick ? 3 : 2);
+            // Body
+            ctx.fillStyle = COLOR.CYBORG_DARK;
+            ctx.fillRect(b.x - 2, b.y - 4, 4, 8);
+            ctx.fillStyle = COLOR.ROCKET_BODY;
+            ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
+            ctx.fillStyle = COLOR.ROCKET_HI;
+            ctx.fillRect(b.x - 1.5, b.y - 4, 1, 8);
+            // Nose
+            ctx.fillStyle = COLOR.CYBORG_EYE;
+            ctx.fillRect(b.x - 1, b.y - 5, 2, 1);
+            // Fins
+            ctx.fillStyle = COLOR.CYBORG_DARK;
+            ctx.fillRect(b.x - 3, b.y + 2, 1, 2);
+            ctx.fillRect(b.x + 2, b.y + 2, 1, 2);
         }
     }
 }
@@ -1692,7 +1831,11 @@ function makeEnemy(type, x, y) {
         vx: 0, vy: 1,
         anchorX: x,
         amp: 0,
-        phase: 0
+        phase: 0,
+        // Cyborg bookkeeping (ignored by other enemy types).
+        fireTelegraph: 0,
+        lastFireSide: 0,
+        hitFlash: 0
     };
 }
 
@@ -1707,13 +1850,36 @@ function updateEnemies(dt) {
         } else if (e.pattern === 'terrain') {
             // Bolted to scrolling deck.
             e.y += SCROLL_SPEED * dt;
+        } else if (e.pattern === 'cyborgHover') {
+            // Descend to a hover height, then drift left/right. After a
+            // long timeout, accelerate downward so stuck cyborgs exit the
+            // screen even if the player ignores them.
+            const targetY = 60;
+            if (e.y < targetY) {
+                e.y += e.vy * dt;
+            } else {
+                e.x = clamp(
+                    e.anchorX + Math.sin(e.age * 0.025) * 90,
+                    30, GAME.width - 30
+                );
+                if (e.age > 1400) {
+                    e.y += (e.vy + (e.age - 1400) * 0.002) * dt;
+                }
+            }
         } else {
             e.x += e.vx * dt;
             e.y += e.vy * dt;
         }
 
         if (e.fireCooldown > 0) e.fireCooldown -= dt;
+        if (e.fireTelegraph > 0) e.fireTelegraph -= dt;
+        if (e.hitFlash > 0) e.hitFlash -= dt;
         const onScreen = e.y > 4 && e.y < GAME.height - 30;
+        // Cyborgs briefly telegraph before firing — arms lift and the
+        // reactor glows so a 6-year-old can see the rocket coming.
+        if (e.type === 'cyborg' && e.fireCooldown > 0 && e.fireCooldown < 18 && e.fireTelegraph <= 0 && onScreen) {
+            e.fireTelegraph = 18;
+        }
         if (e.fireCooldown <= 0 && onScreen) {
             enemyFire(e);
             const stats = ENEMY_STATS[e.type];
@@ -1743,6 +1909,18 @@ function enemyFire(e) {
         spawnSpread(e.x, e.y + 6, 5, speed * 1.0, 0.55,
             COLOR.EBULLET_BLUE, COLOR.EBULLET_BLUE_GLOW, 3.5);
         Engine.Sound.play('enemyShoot');
+    } else if (e.type === 'cyborg') {
+        // Alternate arms so the visual lines up with the rocket origin.
+        const side = (e.lastFireSide === 1) ? -1 : 1;
+        e.lastFireSide = side;
+        // Muzzle is at the tip of the lifted launcher arm.
+        const muzzleX = e.x + side * 18;
+        const muzzleY = e.y + 6;
+        spawnEnemyRocket(muzzleX, muzzleY, speed * 1.2);
+        // Muzzle spark
+        Engine.spawnParticle(muzzleX, muzzleY, side * 0.6, 0.3, 2, COLOR.ROCKET_HI, 8);
+        e.fireTelegraph = 0;
+        Engine.Sound.play('enemyShoot');
     }
 }
 
@@ -1751,6 +1929,7 @@ function renderEnemies(ctx) {
         if (e.type === 'popcorn') drawPopcorn(ctx, e);
         else if (e.type === 'turret') drawTurret(ctx, e);
         else if (e.type === 'bomber') drawBomber(ctx, e);
+        else if (e.type === 'cyborg') drawCyborg(ctx, e);
     }
 }
 
@@ -1824,6 +2003,128 @@ function drawBomber(ctx, e) {
     ctx.fillRect(x - 4, y + 4, 8, 4);
     ctx.fillStyle = COLOR.EBULLET_BLUE;
     ctx.fillRect(x - 3, y + 5, 6, 2);
+}
+
+function drawCyborg(ctx, e) {
+    const x = e.x, y = e.y;
+    const age = e.age;
+    const telegraph = e.fireTelegraph > 0;
+    // Hit flash (recent damage) brightens the chassis for a few frames.
+    const hurt = e.hitFlash > 0;
+
+    // ---- Skirt / base with thruster flicker --------------------------
+    const flick = (Math.floor(age * 0.5) % 2) === 0;
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(x - 14, y + 18, 28, 8);
+    ctx.fillStyle = COLOR.CYBORG_BODY;
+    ctx.fillRect(x - 13, y + 18, 26, 6);
+    // Thrusters underneath
+    ctx.fillStyle = flick ? COLOR.CYBORG_NEON : COLOR.JET_CORE;
+    ctx.fillRect(x - 9, y + 24, 3, 2);
+    ctx.fillRect(x + 6, y + 24, 3, 2);
+    ctx.fillStyle = '#ff9a3a';
+    ctx.fillRect(x - 9, y + 26, 3, flick ? 2 : 1);
+    ctx.fillRect(x + 6, y + 26, 3, flick ? 1 : 2);
+
+    // ---- Central torso ----------------------------------------------
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(x - 11, y - 4, 22, 24);
+    ctx.fillStyle = hurt ? COLOR.CYBORG_HI : COLOR.CYBORG_BODY;
+    ctx.fillRect(x - 10, y - 3, 20, 22);
+    // Chest panels (mechanical detail)
+    ctx.fillStyle = COLOR.CYBORG_HI;
+    ctx.fillRect(x - 8, y - 1, 7, 7);
+    ctx.fillRect(x + 1, y - 1, 7, 7);
+    ctx.fillStyle = COLOR.CYBORG_JOINT;
+    ctx.fillRect(x - 1, y - 4, 2, 24);
+    // Neon ribcage line
+    ctx.fillStyle = telegraph ? '#ff6b76' : COLOR.CYBORG_NEON;
+    ctx.fillRect(x - 9, y + 8, 18, 2);
+    // Reactor core (glows red-orange when about to fire)
+    ctx.fillStyle = telegraph ? '#ff3a3a' : '#ff8a3a';
+    ctx.fillRect(x - 2, y + 12, 4, 4);
+    ctx.fillStyle = COLOR.ROCKET_HI;
+    ctx.fillRect(x - 1, y + 13, 2, 2);
+
+    // ---- Head --------------------------------------------------------
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(x - 6, y - 16, 12, 12);
+    ctx.fillStyle = hurt ? COLOR.CYBORG_HI : COLOR.CYBORG_BODY;
+    ctx.fillRect(x - 5, y - 15, 10, 10);
+    // Visor band with glowing eye
+    ctx.fillStyle = COLOR.CYBORG_JOINT;
+    ctx.fillRect(x - 5, y - 12, 10, 4);
+    ctx.fillStyle = telegraph ? COLOR.CYBORG_EYE_HI : COLOR.CYBORG_EYE;
+    ctx.fillRect(x - 4, y - 11, 8, 2);
+    // Eye highlight (scans across)
+    const scan = Math.floor((age * 0.12) % 7) - 3;
+    ctx.fillStyle = COLOR.CYBORG_EYE_HI;
+    ctx.fillRect(x + scan, y - 11, 2, 2);
+    // Antennae
+    ctx.fillStyle = COLOR.CYBORG_JOINT;
+    ctx.fillRect(x - 5, y - 19, 2, 3);
+    ctx.fillRect(x + 3, y - 19, 2, 3);
+    ctx.fillStyle = COLOR.CYBORG_NEON;
+    ctx.fillRect(x - 5, y - 19, 2, 1);
+    ctx.fillRect(x + 3, y - 19, 2, 1);
+
+    // ---- Arms (rotated groups) --------------------------------------
+    // Idle sway; when telegraphing, lift outward so the rocket tube
+    // points forward. e.lastFireSide tracks which arm fires next so we
+    // alternate for readability.
+    const sway = Math.sin(age * 0.05) * 0.18;
+    const leftAim  = (telegraph && e.lastFireSide !== -1) ? -0.55 : 0;
+    const rightAim = (telegraph && e.lastFireSide !==  1) ?  0.55 : 0;
+
+    drawCyborgArm(ctx, x - 11, y - 2, -1, sway + leftAim);
+    drawCyborgArm(ctx, x + 11, y - 2,  1, -sway + rightAim);
+}
+
+// Draw one mechanical arm. dir is -1 for left, +1 for right. `extraAngle`
+// is a small rotation applied to the whole arm for sway / firing telegraph.
+function drawCyborgArm(ctx, sx, sy, dir, extraAngle) {
+    ctx.save();
+    ctx.translate(sx, sy);
+    // Shoulder pivots so arm dangles downward by default, outward when
+    // aiming. Rotate around the shoulder: 0 = straight down.
+    ctx.rotate(extraAngle * dir);
+
+    // Shoulder pauldron
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(-4, -4, 8, 8);
+    ctx.fillStyle = COLOR.CYBORG_BODY;
+    ctx.fillRect(-3, -3, 6, 6);
+    ctx.fillStyle = COLOR.CYBORG_NEON;
+    ctx.fillRect(-3, -3, 6, 1);
+
+    // Upper arm (hanging down from shoulder)
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(-3, 3, 6, 10);
+    ctx.fillStyle = COLOR.CYBORG_BODY;
+    ctx.fillRect(-2, 3, 4, 9);
+    ctx.fillStyle = COLOR.CYBORG_HI;
+    ctx.fillRect(-2, 3, 1, 9);
+
+    // Elbow joint
+    ctx.fillStyle = COLOR.CYBORG_JOINT;
+    ctx.fillRect(-3, 12, 6, 3);
+
+    // Forearm — rocket launcher tube (kinks outward slightly)
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(-4, 14, 8, 10);
+    ctx.fillStyle = COLOR.CYBORG_BODY;
+    ctx.fillRect(-3, 14, 6, 9);
+    ctx.fillStyle = COLOR.CYBORG_HI;
+    ctx.fillRect(-3, 14, 1, 9);
+    // Twin rocket tubes at the tip
+    ctx.fillStyle = COLOR.CYBORG_JOINT;
+    ctx.fillRect(-3, 22, 2, 4);
+    ctx.fillRect( 1, 22, 2, 4);
+    // Red warning light on launcher
+    ctx.fillStyle = COLOR.CYBORG_EYE;
+    ctx.fillRect(-1, 16, 2, 2);
+
+    ctx.restore();
 }
 
 // =====================================================================
@@ -1900,6 +2201,32 @@ function spawnWave(wave) {
             enemies.push(e);
             break;
         }
+        case 'bossWave': {
+            // Look up the current boss composition and spawn each member.
+            // The final table entry repeats; existing difficultyLoop
+            // scaling keeps making each encounter harder beyond that.
+            const pattern = BOSS_PROGRESSION[
+                Math.min(bossEncounterIndex, BOSS_PROGRESSION.length - 1)
+            ];
+            bossEncounterIndex++;
+            const cx = GAME.width / 2;
+            for (const spec of pattern) {
+                const baseX = (spec.x === 'center') ? cx : spec.x;
+                const e = makeEnemy(spec.type, baseX + (spec.offsetX || 0), spec.y);
+                e.anchorX = baseX + (spec.offsetX || 0);
+                if (spec.type === 'cyborg') {
+                    e.pattern = 'cyborgHover';
+                    e.vx = 0;
+                    e.vy = 0.55 * speedMul;
+                } else {
+                    e.pattern = 'down';
+                    e.vx = 0;
+                    e.vy = 0.4 * speedMul;
+                }
+                enemies.push(e);
+            }
+            break;
+        }
     }
 }
 
@@ -1939,11 +2266,48 @@ function spawnSpread(x, y, count, speed, spread, color, glow, radius) {
     }
 }
 
+// Cyborg rocket — aimed at the player at spawn time, leaves a smoke
+// trail, same circular player-collision as regular enemy bullets so no
+// extra collision code is needed.
+function spawnEnemyRocket(x, y, speed) {
+    if (!player) return;
+    const dx = player.hitboxX - x;
+    const dy = player.hitboxY - y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    enemyBullets.push({
+        kind: 'rocket',
+        x, y,
+        vx: (dx / len) * speed,
+        vy: (dy / len) * speed,
+        r: 4,
+        color: COLOR.ROCKET_BODY,
+        glowColor: COLOR.ROCKET_HI,
+        age: 0,
+        trailTick: 0
+    });
+}
+
 function updateEnemyBullets(dt) {
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
         const b = enemyBullets[i];
         b.x += b.vx * dt;
         b.y += b.vy * dt;
+        if (b.kind === 'rocket') {
+            b.age = (b.age || 0) + dt;
+            b.trailTick = (b.trailTick || 0) + dt;
+            if (b.trailTick >= 2) {
+                b.trailTick = 0;
+                Engine.spawnParticle(
+                    b.x - b.vx * 0.3,
+                    b.y - b.vy * 0.3,
+                    (Math.random() - 0.5) * 0.4,
+                    (Math.random() - 0.5) * 0.4,
+                    1 + Math.random(),
+                    COLOR.ROCKET_TRAIL,
+                    10 + Math.random() * 6
+                );
+            }
+        }
         if (b.y > GAME.height + 20 || b.y < -20 ||
             b.x > GAME.width + 20 || b.x < -20) {
             enemyBullets.splice(i, 1);
@@ -1953,6 +2317,10 @@ function updateEnemyBullets(dt) {
 
 function renderEnemyBullets(ctx) {
     for (const b of enemyBullets) {
+        if (b.kind === 'rocket') {
+            drawEnemyRocket(ctx, b);
+            continue;
+        }
         // Outer glow
         ctx.globalAlpha = 0.4;
         ctx.fillStyle = b.glowColor;
@@ -1973,6 +2341,35 @@ function renderEnemyBullets(ctx) {
     }
 }
 
+function drawEnemyRocket(ctx, b) {
+    const angle = Math.atan2(b.vy, b.vx);
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    // Rocket points in the direction of travel (+x of our local frame).
+    ctx.rotate(angle);
+    // Back flame (flickers)
+    const flick = (Math.floor(b.age * 0.5) % 2) === 0;
+    ctx.fillStyle = flick ? '#ffea3a' : '#ff7a2a';
+    ctx.fillRect(-8, -1, 3, 2);
+    ctx.fillStyle = '#fff3a0';
+    ctx.fillRect(-7, -1, 2, flick ? 2 : 1);
+    // Body
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(-5, -2, 10, 4);
+    ctx.fillStyle = COLOR.ROCKET_BODY;
+    ctx.fillRect(-5, -1, 9, 2);
+    ctx.fillStyle = COLOR.ROCKET_HI;
+    ctx.fillRect(-4, -1, 7, 1);
+    // Nose
+    ctx.fillStyle = COLOR.CYBORG_EYE;
+    ctx.fillRect(4, -1, 2, 2);
+    // Fins
+    ctx.fillStyle = COLOR.CYBORG_DARK;
+    ctx.fillRect(-4, -3, 2, 1);
+    ctx.fillRect(-4,  2, 2, 1);
+    ctx.restore();
+}
+
 // =====================================================================
 // COLLISIONS
 // =====================================================================
@@ -1982,6 +2379,26 @@ function collidePlayerBulletsVsEnemies() {
         const b = playerBullets[i];
         const bx = b.x - b.w / 2;
         const by = b.y - b.h / 2;
+
+        if (b.kind === 'rocket') {
+            // Rockets detonate on first enemy overlap with AOE.
+            let hit = false;
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const e = enemies[j];
+                const ex = e.x - e.w / 2;
+                const ey = e.y - e.h / 2;
+                if (rectOverlap(bx, by, b.w, b.h, ex, ey, e.w, e.h)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) {
+                explodeRocket(b.x, b.y, b.damage);
+                playerBullets.splice(i, 1);
+            }
+            continue;
+        }
+
         let consumed = false;
         for (let j = enemies.length - 1; j >= 0; j--) {
             const e = enemies[j];
@@ -1989,6 +2406,7 @@ function collidePlayerBulletsVsEnemies() {
             const ey = e.y - e.h / 2;
             if (rectOverlap(bx, by, b.w, b.h, ex, ey, e.w, e.h)) {
                 e.hp -= b.damage;
+                if (e.type === 'cyborg') e.hitFlash = 4;
                 Engine.spawnParticle(b.x, b.y, (Math.random() - 0.5) * 2, -1, 1, COLOR.MUZZLE, 6);
                 if (b.kind === 'vulcan') {
                     consumed = true;
@@ -2001,6 +2419,39 @@ function collidePlayerBulletsVsEnemies() {
         }
         if (consumed) {
             playerBullets.splice(i, 1);
+        }
+    }
+}
+
+// AOE detonation: big visual, screen shake, and damage to every enemy
+// within ROCKET_BLAST_RADIUS of (x, y).
+function explodeRocket(x, y, damage) {
+    spawnExplosion(x, y, true);
+    spawnExplosion(x - 14, y + 8, false);
+    spawnExplosion(x + 14, y - 6, false);
+    Engine.Sound.play('bigExplode');
+    shakeFrames = Math.max(shakeFrames, SHAKE_FRAMES * 0.6);
+    // Ring particles so the AOE edge is visible for a frame or two.
+    for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        Engine.spawnParticle(
+            x + Math.cos(a) * 6,
+            y + Math.sin(a) * 6,
+            Math.cos(a) * 2.2,
+            Math.sin(a) * 2.2,
+            1 + Math.random(),
+            Math.random() < 0.5 ? COLOR.EXPLODE_YELLOW : COLOR.ROCKET_BODY,
+            14 + Math.random() * 8
+        );
+    }
+    const R2 = ROCKET_BLAST_RADIUS * ROCKET_BLAST_RADIUS;
+    for (let k = enemies.length - 1; k >= 0; k--) {
+        const e = enemies[k];
+        const dx = e.x - x, dy = e.y - y;
+        if (dx * dx + dy * dy <= R2) {
+            e.hp -= damage;
+            if (e.type === 'cyborg') e.hitFlash = 6;
+            if (e.hp <= 0) killEnemy(k);
         }
     }
 }
@@ -2077,6 +2528,16 @@ function killEnemy(index) {
     } else if (e.type === 'turret') {
         spawnExplosion(e.x, e.y, true);
         Engine.Sound.play('explode');
+    } else if (e.type === 'cyborg') {
+        // Triple explosion for the "big kill" feel + screen shake.
+        spawnExplosion(e.x, e.y, true);
+        spawnExplosion(e.x - 12, e.y + 6, false);
+        spawnExplosion(e.x + 12, e.y - 4, false);
+        Engine.Sound.play('bigExplode');
+        shakeFrames = SHAKE_FRAMES;
+        // Cyborg always drops the rocket weapon powerup.
+        spawnPowerup(e.x, e.y, 'R');
+        return;
     } else {
         spawnExplosion(e.x, e.y, false);
         Engine.Sound.play('explode');
@@ -2163,8 +2624,10 @@ function renderExplosions(ctx) {
 // POWER-UPS
 // =====================================================================
 
-function spawnPowerup(x, y) {
-    const kind = POWERUP_KINDS[Math.floor(Math.random() * POWERUP_KINDS.length)];
+function spawnPowerup(x, y, forcedKind) {
+    const kind = forcedKind != null
+        ? forcedKind
+        : POWERUP_KINDS[Math.floor(Math.random() * POWERUP_KINDS.length)];
     powerups.push({ x, y, kind, age: 0 });
 }
 
@@ -2210,6 +2673,7 @@ function powerupColor(kind) {
     if (kind === 'gold') return COLOR.POWER_GOLD;
     if (kind === 'P')    return COLOR.POWER_GREEN;
     if (kind === 'B')    return COLOR.POWER_BOMB;
+    if (kind === 'R')    return COLOR.POWER_ROCKET;
     return '#ffffff';
 }
 
@@ -2219,6 +2683,7 @@ function powerupLabel(kind) {
     if (kind === 'gold') return 'G';
     if (kind === 'P')    return 'P';
     if (kind === 'B')    return 'B';
+    if (kind === 'R')    return 'R';
     return '?';
 }
 
@@ -2245,6 +2710,13 @@ function applyPowerup(p) {
         player.power = Math.min(player.power + 1, MAX_POWER);
     } else if (p.kind === 'B') {
         bombCount = Math.min(bombCount + 1, MAX_BOMBS);
+    } else if (p.kind === 'R') {
+        if (player.weapon === 'rocket') {
+            player.power = Math.min(player.power + 1, MAX_POWER);
+        } else {
+            player.weapon = 'rocket';
+            player.power = Math.max(1, player.power);
+        }
     }
 
     // Pickup sparkle
